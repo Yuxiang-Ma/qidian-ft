@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "qidian-ft"
+version = "0.1.0"
+description = "Driver, recorder and GUI for the KEYDYN QS-Z4-4530Ti-1 six-axis force/torque sensor (RS-485 Modbus-RTU, ~500 Hz)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["force-torque", "6-axis", "ft-sensor", "modbus", "rs485", "keydyn", "robotics"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = ["pyserial>=3.4"]
+
+[project.optional-dependencies]
+viz = ["numpy>=1.20", "matplotlib>=3.4"]
+dev = ["pytest>=7", "ruff>=0.1", "numpy>=1.20", "matplotlib>=3.4"]
+
+[project.scripts]
+qidian-ft = "qidian_ft.cli:main"
+
+[project.gui-scripts]
+qidian-ft-gui = "qidian_ft.gui:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["qidian_ft"]
+
+[tool.hatch.build.targets.sdist]
+include = ["qidian_ft", "tests", "README.md", "LICENSE", "pyproject.toml"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "C4", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Vendor package (PDFs, SAFS_TOOL2 binaries): not ours to redistribute.
+QS-Z4-4530Ti-1资料包/
+*资料包*/
+
+# Scratch recordings and local working files.
+temp/
+/*.csv
+/*.png
+CLAUDE.md
+.coverage
+htmlcov/
+.mypy_cache/
