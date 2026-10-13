@@ -121,8 +121,9 @@ class FTSensor:
             self.close()  # never leave the port held after a failed connect
             raise
         if latency is not None and latency > 2:
-            logger.warning("FTDI latency timer is %d ms: polling capped near %.0f Hz",
-                           latency, 1000.0 / latency)
+            from .platform_help import latency_fix_hint
+            logger.warning("FTDI latency timer is %d ms: polling capped near %.0f Hz. %s",
+                           latency, 1000.0 / latency, latency_fix_hint(self.backend_name))
         logger.info("Connected %s via %s", self.info.describe(), self.backend_name)
         return self.info
 

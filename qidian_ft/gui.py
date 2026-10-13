@@ -7,14 +7,14 @@ gates polling.
 """
 from __future__ import annotations
 
-import contextlib
 import logging
 import os
 import sys
 import time
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-from typing import List, Optional
+from tkinter import font as tkfont
+from typing import List, Optional, Tuple
 
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -74,7 +74,7 @@ class FTApp:
         bar = ttk.Frame(self.root, padding=8)
         bar.pack(fill="x")
         ttk.Label(bar, text="Port").pack(side="left")
-        self.port_box = ttk.Combobox(bar, textvariable=self.port_var, width=12)
+        self.port_box = ttk.Combobox(bar, textvariable=self.port_var, width=22)
         self.port_box.pack(side="left", padx=(4, 2))
         ttk.Button(bar, text="⟳", width=3, command=self.refresh_ports).pack(side="left")
         ttk.Label(bar, text="Backend").pack(side="left", padx=(12, 0))
@@ -91,16 +91,17 @@ class FTApp:
 
         values = ttk.LabelFrame(side, text="Wrench", padding=8)
         values.pack(fill="x")
-        big = ("Consolas", 18)
+        big = _font("TkFixedFont", 18)
         for i, (name, unit) in enumerate(zip(CHANNELS, UNITS)):
             color = AXIS_COLORS[i % 3]
             ttk.Label(values, text=name.capitalize(), foreground=color,
-                      font=("Segoe UI", 11, "bold"), width=3).grid(row=i, column=0, sticky="w")
+                      font=_font("TkDefaultFont", 11, "bold"), width=3).grid(
+                row=i, column=0, sticky="w")
             ttk.Label(values, textvariable=self.value_vars[i], font=big, width=9,
                       anchor="e").grid(row=i, column=1, sticky="e")
             ttk.Label(values, text=unit, width=4).grid(row=i, column=2, sticky="w", padx=(4, 0))
         ttk.Label(values, textvariable=self.stats_var, foreground="#555",
-                  font=("Consolas", 9), justify="left").grid(
+                  font=_font("TkFixedFont", 9), justify="left").grid(
             row=6, column=0, columnspan=3, sticky="w", pady=(8, 0))
 
         ctrl = ttk.LabelFrame(side, text="Sensor", padding=8)
@@ -122,7 +123,7 @@ class FTApp:
         self.rec_btn = ttk.Button(rec, text="● Record to CSV…", command=self.toggle_record)
         self.rec_btn.pack(fill="x")
         ttk.Label(rec, textvariable=self.rec_var, foreground="#555", wraplength=230,
-                  font=("Segoe UI", 8)).pack(anchor="w", pady=(4, 0))
+                  font=_font("TkDefaultFont", 8)).pack(anchor="w", pady=(4, 0))
 
         view = ttk.LabelFrame(side, text="View", padding=8)
         view.pack(fill="x", pady=8)
@@ -330,6 +331,24 @@ class FTApp:
         self.root.destroy()
 
 
+def _font(base: str, size: int, weight: str = "normal") -> Tuple[str, int, str]:
+    """The platform's own family for a named Tk font (Consolas, DejaVu Sans Mono, ...).
+
+    A plain tuple, not a ``tkfont.Font``: Tk deletes a Font once Python
+    garbage-collects it, and the widget would silently fall back.
+    """
+    return (tkfont.nametofont(base).actual("family"), size, weight)
+
+
+def _pick_theme(root: tk.Tk) -> None:
+    """Native look on Windows/macOS; "clam" over Tk's dated default on Linux."""
+    style = ttk.Style(root)
+    for theme in ("vista", "aqua", "clam"):
+        if theme in style.theme_names():
+            style.theme_use(theme)
+            return
+
+
 def _connect_hint(err: str) -> str:
     hints: List[str] = [err, ""]
     if "bad CRC" in err or "short reply" in err:
@@ -338,7 +357,7 @@ def _connect_hint(err: str) -> str:
     elif "timeout" in err or "no reply" in err:
         hints.append("No reply: check 18-72 V power, that the sensor is in RS-485 mode "
                      "(not CAN), 460800 baud, and slave id 1.")
-    else:
+    elif "permission" not in err.lower() and "another program" not in err:
         hints.append("Close other programs using the port (e.g. the vendor SAFS_TOOL2).")
     return "\n".join(hints)
 
@@ -348,8 +367,7 @@ def main(port: Optional[str] = None, backend: str = "auto") -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     sys.setswitchinterval(GIL_SWITCH_INTERVAL_S)
     root = tk.Tk()
-    with contextlib.suppress(tk.TclError):
-        ttk.Style(root).theme_use("vista")
+    _pick_theme(root)
     FTApp(root, port=port, backend=backend)
     root.mainloop()
 

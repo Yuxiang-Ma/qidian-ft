@@ -27,7 +27,11 @@ def cmd_info(args: argparse.Namespace) -> int:
     print(f"ports    : {', '.join(list_ports()) or 'none'}")
     with FTSensor(_sensor_config(args)) as ft:
         assert ft.info is not None  # set by connect() in __enter__
-        print(f"backend  : {ft.backend_name} (latency timer {ft.latency_timer_ms} ms)")
+        timer = ft.latency_timer_ms
+        print(f"backend  : {ft.backend_name} (latency timer {timer} ms)")
+        if timer is not None and timer > 2:
+            from .platform_help import latency_fix_hint
+            print(f"           ~{1000 // timer} Hz max. {latency_fix_hint(ft.backend_name)}")
         print(f"sensor   : {ft.info.describe()}")
         samples = list(ft.stream(max_samples=args.samples))
     span = samples[-1].t_recv - samples[0].t_send
@@ -91,10 +95,47 @@ def cmd_plot(args: argparse.Namespace) -> int:
     return 0
 
 
+def _import_gui():
+    """The GUI entry point, or a one-line install hint if its toolkit is missing."""
+    try:
+        import tkinter  # noqa: F401
+    except ImportError as exc:
+        from .platform_help import tk_missing_hint
+        raise SystemExit(tk_missing_hint()) from exc
+    try:
+        from .gui import main as gui_main
+    except ImportError as exc:
+        raise SystemExit(f"{exc}. The GUI needs: pip install 'qidian-ft[viz]'") from exc
+    return gui_main
+
+
 def cmd_gui(args: argparse.Namespace) -> int:
     """Launch the desktop GUI."""
-    from .gui import main as gui_main
-    gui_main(port=args.port, backend=args.backend)
+    _import_gui()(port=args.port, backend=args.backend)
+    return 0
+
+
+def gui_entry() -> None:
+    """``qidian-ft-gui`` entry point."""
+    try:
+        gui_main = _import_gui()
+    except SystemExit as exc:
+        # Windows runs gui-scripts under pythonw: no console to print to.
+        if sys.platform == "win32" and sys.stderr is None:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None, str(exc.code), "qidian-ft", 0x10)
+        raise
+    gui_main()
+
+
+def cmd_udev_rule(args: argparse.Namespace) -> int:
+    """Print the Linux udev rule (1 ms latency timer, desktop-user access)."""
+    from .platform_help import UDEV_INSTALL, UDEV_RULE
+    print(UDEV_RULE, end="")
+    # stderr, so `qidian-ft udev-rule | sudo tee ...` writes only the rule.
+    print("# Install with:", file=sys.stderr)
+    for line in UDEV_INSTALL.splitlines():
+        print(f"#   {line}", file=sys.stderr)
     return 0
 
 
@@ -132,6 +173,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_plot.set_defaults(func=cmd_plot)
 
     sub.add_parser("gui", help="launch the desktop GUI").set_defaults(func=cmd_gui)
+    sub.add_parser("udev-rule", help="print the Linux udev rule (latency + access)"
+                   ).set_defaults(func=cmd_udev_rule)
     return parser
 
 

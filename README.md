@@ -29,6 +29,39 @@ get just the driver and recorder (pyserial plus the standard library).
 On Windows the `d2xx` backend uses `ftd2xx.dll`, which ships with FTDI's standard
 driver. On Linux the `serial` backend is selected automatically.
 
+### Ubuntu / Linux
+
+The kernel's `ftdi_sio` driver handles the adapter, so no extra driver is
+needed. Do this once:
+
+```bash
+sudo apt install python3-tk                         # only for the GUI
+qidian-ft udev-rule | sudo tee /etc/udev/rules.d/70-qidian-ft.rules
+sudo udevadm control --reload-rules                 # then replug the adapter
+qidian-ft info                                      # port is /dev/ttyUSB0
+```
+
+The rule does three things for FTDI adapters:
+- sets the latency timer to 1 ms, giving ~470 Hz instead of ~60 Hz;
+- lets the logged-in desktop user open the port;
+- keeps ModemManager from probing it.
+
+The access part covers every FTDI serial adapter for whoever is logged in at
+the desktop. That's fine on a lab PC, but SSH sessions don't get it and still
+need the `dialout` group.
+
+Without the rule, the driver still asks for 1 ms itself (`ASYNC_LOW_LATENCY`,
+no root needed), and you can get port access with
+`sudo usermod -aG dialout $USER` followed by logging out and back in.
+`qidian-ft info` prints the latency timer in effect. A CH340-based adapter
+that disappears right after plugging in is being claimed by `brltty`; fix it
+with `sudo apt remove brltty`.
+
+CI runs the full test suite on Ubuntu, including the GUI under a virtual
+display. It also runs an end-to-end test that drives the real pyserial
+backend over a pseudo-terminal with a simulated sensor. The ~470 Hz figures
+above were measured on Windows; Linux hasn't been measured on hardware yet.
+
 ## Quick start
 
 GUI:
@@ -160,7 +193,10 @@ Other messages:
 |---|---|
 | `FT_OpenEx … DEVICE_NOT_FOUND` / `Could not open COM4` | Another program holds the port. Close the vendor SAFS_TOOL2 or any other recording. |
 | `FTDI latency timer is 16 ms` | You are on the `serial` backend under Windows. Use `--backend d2xx`, or set Device Manager → COMx → Port Settings → Advanced → Latency Timer = 1. |
-| Linux `Permission denied` | `sudo usermod -aG dialout $USER`, then log in again. |
+| Linux `Permission denied` | Install the udev rule (see [Ubuntu / Linux](#ubuntu--linux)), or `sudo usermod -aG dialout $USER` and log in again. |
+| Linux `FTDI latency timer is 16 ms` | Install the udev rule and replug the adapter. |
+| Linux `another program is using it` | Another `qidian-ft` (or `screen`, `minicom`) has the port open. |
+| `Tkinter is missing` | `sudo apt install python3-tk` |
 
 ## Layout
 
@@ -174,6 +210,7 @@ Other messages:
 | `qidian_ft/diagnose.py` | `probe` sweep and edge-corruption detector |
 | `qidian_ft/trace.py`, `plotting.py` | numpy trace, CSV round trip, PNG output |
 | `qidian_ft/cli.py` | `qidian-ft` command |
+| `qidian_ft/platform_help.py` | Linux udev rule, per-OS permission and latency hints |
 
 ## Development
 

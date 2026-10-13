@@ -16,8 +16,8 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         python: ["3.9", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
       - name: Install
@@ -28,7 +28,13 @@ jobs:
       - name: Lint
         run: ruff check .
       - name: Tests
+        if: runner.os != 'Linux'
         run: pytest -q
+      - name: Tests (virtual display, so the GUI test runs too)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq xvfb
+          xvfb-run -a pytest -q -rs
 
   bare-install:
     name: bare install has no numpy/matplotlib (${{ matrix.os }})
@@ -37,8 +43,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Install without extras

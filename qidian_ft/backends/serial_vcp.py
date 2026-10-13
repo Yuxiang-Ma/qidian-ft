@@ -7,6 +7,7 @@ then the unprivileged ``ASYNC_LOW_LATENCY`` flag, which ftdi_sio maps to 1 ms.
 """
 from __future__ import annotations
 
+import errno
 import glob
 import logging
 import os
@@ -63,6 +64,18 @@ def _sysfs_latency_path(port: str) -> Optional[str]:
     return None
 
 
+def _open_error(port: str, exc: Exception) -> str:
+    """Explain a failed open; permission problems get setup instructions."""
+    from ..platform_help import permission_hint
+    denied = (getattr(exc, "errno", None) in (errno.EACCES, errno.EPERM)
+              or "Permission denied" in str(exc) or "Access is denied" in str(exc))
+    if denied:
+        return f"Could not open {port}: {exc}\n{permission_hint(port)}"
+    if getattr(exc, "errno", None) in (errno.EAGAIN, errno.EBUSY) or "temporarily" in str(exc):
+        return f"Could not open {port}: another program is using it ({exc})"
+    return f"Could not open {port}: {exc}"
+
+
 class SerialDevice(Backend):
     """The sensor reached through a virtual COM port."""
 
@@ -77,13 +90,16 @@ class SerialDevice(Backend):
                 raise SerialBackendError("No USB serial port found")
             port = candidates[0]
         self._port = port
+        # exclusive: on POSIX two programs could otherwise share the port and
+        # interleave Modbus frames (Windows always locks it).
+        extra = {} if platform.system() == "Windows" else {"exclusive": True}
         try:
             self._ser = serial.Serial(
                 port=port, baudrate=baud, bytesize=8, parity=serial.PARITY_NONE,
                 stopbits=serial.STOPBITS_ONE, timeout=timeout_s,
-                write_timeout=timeout_s)
+                write_timeout=timeout_s, **extra)
         except (OSError, serial.SerialException) as exc:
-            raise SerialBackendError(f"Could not open {port}: {exc}") from exc
+            raise SerialBackendError(_open_error(port, exc)) from exc
         self._apply_latency(latency_ms)
         self.purge()
 

@@ -27,7 +27,7 @@ dev = ["pytest>=7", "ruff>=0.1", "numpy>=1.20", "matplotlib>=3.4"]
 qidian-ft = "qidian_ft.cli:main"
 
 [project.gui-scripts]
-qidian-ft-gui = "qidian_ft.gui:main"
+qidian-ft-gui = "qidian_ft.cli:gui_entry"
 
 [tool.hatch.build.targets.wheel]
 packages = ["qidian_ft"]
